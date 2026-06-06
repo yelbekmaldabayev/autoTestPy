@@ -85,7 +85,7 @@ class TestLogin:
         password = driver.find_element(By.CSS_SELECTOR, "input[data-qa='login-password']")
         login_btn = driver.find_element(By.CSS_SELECTOR, "button[data-qa='login-button']")
 
-        # ⚠️ Вставь свои реальные данные
+        #Вставь свои реальные данные
         email.send_keys("your_real_email@example.com")
         password.send_keys("your_real_password")
         login_btn.click()

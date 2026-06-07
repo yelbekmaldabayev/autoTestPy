@@ -17,7 +17,7 @@ autoTestPy/
 │   ├── LoginPage.py           # /login     — login form
 │   └── CartPage.py            # /view_cart — cart verification
 │
-├── TestQa.py                  # Test layer (pytest classes)
+├── test_qa.py                  # Test layer (pytest classes)
 │
 └── .env                        # LOGIN_EMAIL and LOGIN_PASSWORD (not committed)
 ```

@@ -1,15 +1,34 @@
+# --- Project-specific ignores ---
+
 # Virtual environment
 venv/
+
+# Environment files (sensitive)
 .env
 
-# Python cache
-__pycache__/
-*.pyc
-
-# Pytest cache
+# Pytest cache and test artifacts
 .pytest_cache/
 
-# Environment / system files
+# Compiled Python
+__pycache__/
+*.py[cod]
+
+# Python bytecode
+*$py.class
+
+# IDE/editor
+.vscode/
+.idea/
+
+# Logs
 *.log
+
+# Other local files
+reports/
+test-results/
+screenshots/
+
+# Platform
 .DS_Store
+Thumbs.db
 

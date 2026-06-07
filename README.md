@@ -59,16 +59,16 @@ LOGIN_PASSWORD=yourpassword
 
 ```bash
 # All tests
-pytest TestQa.py -v
+pytest test_qa.py -v
 
 # With short traceback
-pytest TestQa.py -v --tb=short
+pytest test_qa.py -v --tb=short
 
 # Specific test class
-pytest TestQa.py::TestProductSearch -v
+pytest test_qa.py::TestProductSearch -v
 
 # Specific test method
-pytest TestQa.py::TestProductSearch::test_search_returns_results -v
+pytest test_qa.py::TestProductSearch::test_search_returns_results -v
 ```
 
 ## Test Coverage

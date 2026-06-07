@@ -1,18 +1,20 @@
 import pytest
+import os
+from dotenv import load_dotenv
+
 from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.action_chains import ActionChains
 
+from pages.ProductsPage import ProductsPage
+from pages.LoginPage import LoginPage
+from pages.CartPage import CartPage
 
-# ============================================================
-# FIXTURE — ОДИН БРАУЗЕР НА ВСЮ СЕССИЮ (МАКСИМАЛЬНОЕ УСКОРЕНИЕ)
-# ============================================================
+load_dotenv()
+
+# FIXTURE - ONE BROWSER PER SESSION
 @pytest.fixture(scope="session")
 def driver():
     options = webdriver.ChromeOptions()
-    options.add_argument("--headless=new")
+    # options.add_argument("--headless=new")  # DISABLE THIS
     options.add_argument("--disable-gpu")
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-dev-shm-usage")
@@ -23,147 +25,110 @@ def driver():
     options.add_argument("--disable-blink-features=AutomationControlled")
 
     driver = webdriver.Chrome(options=options)
-    driver.implicitly_wait(1)  # быстрый implicit wait
+    driver.implicitly_wait(1)
     yield driver
     driver.quit()
 
 
-# ============================================================
-# CLASS 1 — PRODUCT SEARCH (TC-001, TC-002, TC-003)
-# ============================================================
+# CLASS 1 - PRODUCT SEARCH
 class TestProductSearch:
 
     def test_search_returns_results(self, driver):
-        driver.get("https://automationexercise.com/products")
-        wait = WebDriverWait(driver, 5)
+        # Steps: open products page, hide ads, type query, click search
+        products_page = ProductsPage(driver)
+        products_page.open()
+        products_page.search("dress")
 
-        search_input = wait.until(
-            EC.presence_of_element_located((By.ID, "search_product"))
-        )
-        search_input.send_keys("dress")
-        driver.find_element(By.ID, "submit_search").click()
-
-        products = wait.until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".product-image-wrapper"))
-        )
-        assert len(products) > 0
+        # Assertion: at least one product card must appear
+        products = products_page.get_product_cards()
+        assert len(products) > 0, "Expected search results but got none"
 
     def test_search_result_count_displayed(self, driver):
-        driver.get("https://automationexercise.com/products")
-        wait = WebDriverWait(driver, 5)
+        # Steps: open products page, search for a term, verify heading
+        products_page = ProductsPage(driver)
+        products_page.open()
+        products_page.search("dress")
 
-        wait.until(EC.presence_of_element_located((By.ID, "search_product"))).send_keys("dress")
-        driver.find_element(By.ID, "submit_search").click()
-
-        title = wait.until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, ".title.text-center"))
+        # Assertion: results section heading contains "SEARCHED PRODUCTS"
+        title_text = products_page.get_search_heading_text()
+        assert "SEARCHED PRODUCTS" in title_text, (
+            f"Expected 'SEARCHED PRODUCTS' heading, got: '{title_text}'"
         )
-        assert "SEARCHED PRODUCTS" in title.text.upper()
 
     def test_empty_search_shows_error(self, driver):
-        driver.get("https://automationexercise.com/products")
-        wait = WebDriverWait(driver, 5)
+        # Steps: open products page, click search without any input
+        products_page = ProductsPage(driver)
+        products_page.open()
+        products_page.submit_empty_search()
 
-        driver.find_element(By.ID, "submit_search").click()
-
-        error = wait.until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, ".features_items"))
-        )
-        assert error.is_displayed()
+        # Assertion: features container is still displayed (no crash / redirect)
+        assert products_page.is_product_grid_displayed(), "Expected features_items to be visible after empty search"
 
 
-# ============================================================
-# CLASS 2 — LOGIN (TC-004, TC-005, TC-006, TC-007)
-# ============================================================
+# CLASS 2 - LOGIN
 class TestLogin:
 
     def test_valid_login(self, driver):
-        driver.get("https://automationexercise.com/login")
-        wait = WebDriverWait(driver, 5)
+        # Steps: navigate to login, enter valid credentials, submit
+        login_page = LoginPage(driver)
+        login_page.open()
+        login_page.login(os.getenv("LOGIN_EMAIL"), os.getenv("LOGIN_PASSWORD"))
 
-        email = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[data-qa='login-email']")))
-        password = driver.find_element(By.CSS_SELECTOR, "input[data-qa='login-password']")
-        login_btn = driver.find_element(By.CSS_SELECTOR, "button[data-qa='login-button']")
-
-        #Вставь свои реальные данные
-        email.send_keys("your_real_email@example.com")
-        password.send_keys("your_real_password")
-        login_btn.click()
-
-        logged_in = wait.until(
-            EC.presence_of_element_located((By.XPATH, "//a[contains(text(),'Logged in as')]"))
-        )
-        assert logged_in.is_displayed()
+        # Assertion: "Logged in as" link appears in the navbar
+        assert login_page.is_logged_in(), "Expected 'Logged in as' to be visible after valid login"
 
     def test_invalid_password_shows_error(self, driver):
-        driver.get("https://automationexercise.com/login")
-        wait = WebDriverWait(driver, 5)
+        # Steps: log out, navigate to login, enter wrong password, submit
+        login_page = LoginPage(driver)
+        login_page.open_as_guest()
+        login_page.login("test@example.com", "wrongpass")
 
-        driver.find_element(By.CSS_SELECTOR, "input[data-qa='login-email']").send_keys("test@example.com")
-        driver.find_element(By.CSS_SELECTOR, "input[data-qa='login-password']").send_keys("wrongpass")
-        driver.find_element(By.CSS_SELECTOR, "button[data-qa='login-button']").click()
-
-        error = wait.until(
-            EC.presence_of_element_located((By.XPATH, "//p[contains(text(),'Your email or password is incorrect!')]"))
-        )
-        assert error.is_displayed()
+        # Assertion: error message is displayed
+        assert login_page.is_error_displayed(), "Expected error message for wrong password"
 
     def test_invalid_email_format(self, driver):
-        driver.get("https://automationexercise.com/login")
-        wait = WebDriverWait(driver, 5)
+        # Steps: log out, navigate to login, enter malformed email, submit
+        login_page = LoginPage(driver)
+        login_page.open_as_guest()
+        login_page.login("invalid-email-format", "123456")
 
-        email = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[data-qa='login-email']")))
-        password = driver.find_element(By.CSS_SELECTOR, "input[data-qa='login-password']")
-        login_btn = driver.find_element(By.CSS_SELECTOR, "button[data-qa='login-button']")
-
-        email.send_keys("invalid-email-format")
-        password.send_keys("123456")
-        login_btn.click()
-
-        error = wait.until(
-            EC.presence_of_element_located((By.XPATH, "//p[contains(text(),'Your email or password is incorrect!')]"))
-        )
-        assert error.is_displayed()
+        # Assertion: server-side or client-side error is shown
+        assert login_page.is_error_displayed(), "Expected error message for invalid email format"
 
     def test_empty_fields_show_error(self, driver):
-        driver.get("https://automationexercise.com/login")
-        wait = WebDriverWait(driver, 5)
+        # Steps: log out, navigate to login, click submit without filling anything
+        login_page = LoginPage(driver)
+        login_page.open_as_guest()
+        login_page.submit_empty_form()
 
-        driver.find_element(By.CSS_SELECTOR, "button[data-qa='login-button']").click()
-
-        error = wait.until(
-            EC.presence_of_element_located((By.XPATH, "//p[contains(text(),'Your email or password is incorrect!')]"))
+        # Assertion: browser native validation message is set on the email field
+        validation_message = login_page.get_email_validation_message()
+        assert validation_message != "", (
+            "Expected browser validation message on empty email field"
         )
-        assert error.is_displayed()
 
 
-# ============================================================
-# CLASS 3 — ADD TO CART (TC-008 BONUS)
-# ============================================================
+# CLASS 3 - ADD TO CART
 class TestAddToCart:
 
     def test_add_product_to_cart(self, driver):
-        driver.get("https://automationexercise.com/products")
-        wait = WebDriverWait(driver, 5)
+        # Steps: open products page, hover first product, add to cart, verify modal
+        products_page = ProductsPage(driver)
+        products_page.open()
+        products_page.add_first_product_to_cart()
 
-        first_product = wait.until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, ".product-image-wrapper"))
+        # Assertion 1: confirmation modal appears
+        assert products_page.is_cart_modal_displayed(), "Expected cart confirmation modal to be visible"
+
+        # Dismiss modal
+        products_page.dismiss_cart_modal()
+
+        # Navigate to the cart page and verify at least one item row exists
+        cart_page = CartPage(driver)
+        cart_page.open()
+        cart_item_count = cart_page.get_cart_item_count()
+
+        # Assertion 2: cart contains at least one product
+        assert cart_item_count >= 1, (
+            f"Expected at least 1 item in cart, found {cart_item_count}"
         )
-
-        ActionChains(driver).move_to_element(first_product).perform()
-
-        add_btn = first_product.find_element(By.CSS_SELECTOR, ".add-to-cart")
-        add_btn.click()
-
-        modal = wait.until(EC.presence_of_element_located((By.ID, "cartModal")))
-        assert modal.is_displayed()
-
-        continue_btn = wait.until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, ".btn.btn-success.close-modal"))
-        )
-        continue_btn.click()
-
-        cart = wait.until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "a[href='/view_cart']"))
-        )
-        assert "1" in cart.text
